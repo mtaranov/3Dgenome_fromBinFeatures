@@ -16,6 +16,10 @@ from metrics import ClassificationResult
 #from deeplift import keras_conversion as kc
 #from deeplift.blobs import MxtsMode
 
+from sklearn.svm import SVC as scikit_SVC
+from sklearn.tree import DecisionTreeClassifier as scikit_DecisionTree
+from sklearn.ensemble import RandomForestClassifier
+
 class Model(object):
     __metaclass__ = ABCMeta
 
@@ -130,3 +134,37 @@ class LongRangeDNN(Model):
            
     def predict(self, X):
         return self.model.predict(X, batch_size=128, verbose=False) 
+
+class DecisionTree(Model):
+
+    def __init__(self):
+        self.classifier = scikit_DecisionTree()
+
+    def train(self, X, y, validation_data=None):
+        self.classifier.fit(X, y)
+
+    def predict(self, X):
+        predictions = np.asarray(self.classifier.predict_proba(X))[..., 1]
+        if len(predictions.shape) == 2:  # multitask
+            predictions = predictions.T
+        else:  # single-task
+            predictions = np.expand_dims(predictions, 1)
+        return predictions
+
+
+class RandomForest(DecisionTree):
+
+    def __init__(self):
+        self.classifier = RandomForestClassifier(n_estimators=100)
+
+class SVC(Model):
+
+    def __init__(self):
+        #self.classifier = scikit_SVC(probability=True, kernel='linear')
+        self.classifier = scikit_SVC(probability=True, kernel='rbf')
+
+    def train(self, X, y, validation_data=None):
+        self.classifier.fit(X, y)
+
+    def predict(self, X):
+        return self.classifier.predict_proba(X)[:, 1:]
