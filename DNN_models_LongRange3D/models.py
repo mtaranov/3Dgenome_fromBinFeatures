@@ -72,8 +72,8 @@ class LongRangeDNN(Model):
 
 
     def __init__(self, num_features=11, num_nodes=2, use_deep_CNN=False,
-                  num_tasks=1, num_filters=25,
-                  num_filters_2=25, num_filters_3=25,
+                  num_tasks=1, num_filters=1000,
+                  num_filters_2=1000, num_filters_3=1000,
                   L1=0, dropout=0.0, verbose=2):
         self.num_features = num_features
         self.num_nodes = num_nodes
@@ -99,9 +99,9 @@ class LongRangeDNN(Model):
                 init='he_normal', W_regularizer=l1(L1)))
             self.model.add(Dropout(dropout))
         self.model.add(Flatten())
-        self.model.add(Dense(output_dim=25, activation='relu'))
-        self.model.add(Dense(output_dim=25, activation='relu'))
-        self.model.add(Dense(output_dim=25, activation='relu'))
+        self.model.add(Dense(output_dim=1000, activation='relu'))
+        self.model.add(Dense(output_dim=1000, activation='relu'))
+        self.model.add(Dense(output_dim=1000, activation='relu'))
         self.model.add(Dense(output_dim=self.num_tasks))
         self.model.add(Activation('sigmoid'))
         self.model.compile(optimizer='adam', loss='binary_crossentropy')
@@ -117,7 +117,7 @@ class LongRangeDNN(Model):
             num_positives = y.sum()
             num_sequences = len(y)
             num_negatives = num_sequences - num_positives
-        self.callbacks = [EarlyStopping(monitor='val_loss', patience=10)]
+        self.callbacks = [EarlyStopping(monitor='val_loss', patience=20)]
         if self.verbose >= 1:
             self.callbacks.append(self.PrintMetrics(validation_data, self))
             print('Training model...')
@@ -134,6 +134,38 @@ class LongRangeDNN(Model):
            
     def predict(self, X):
         return self.model.predict(X, batch_size=128, verbose=False) 
+
+class LongRangeDNN_FC(LongRangeDNN):
+    def __init__(self, num_features=22, use_deep_CNN=False,
+                  num_tasks=1, num_filters=(5000,5000,5000),
+                  L1=0, dropout=0, verbose=2):
+        self.num_features = num_features
+        self.input_shape = (1, num_features)
+        self.num_tasks = num_tasks
+        self.verbose = verbose
+        self.model = Sequential()
+        for filter_size in num_filters:
+            #self.model.add(Dense(filter_size, input_dim=self.num_features,init='he_normal', activation='linear'))
+            self.model.add(Dense(filter_size, input_dim=self.num_features,init='he_normal'))
+            self.model.add(Activation('relu'))
+            self.model.add(Dropout(dropout))
+#        if use_deep_CNN:
+#            self.model.add(Convolution2D(
+#                nb_filter=num_filters_2, nb_row=1,
+#                nb_col=1, activation='relu',
+#                init='he_normal', W_regularizer=l1(L1)))
+#            self.model.add(Dropout(dropout))
+#            self.model.add(Convolution2D(
+#                nb_filter=num_filters_3, nb_row=1,
+#                nb_col=1, activation='relu',
+#                init='he_normal', W_regularizer=l1(L1)))
+#            self.model.add(Dropout(dropout))
+        self.model.add(Dense(output_dim=self.num_tasks))
+        self.model.add(Activation('sigmoid'))
+        #self.model.compile(optimizer='adam', loss='binary_crossentropy')
+        self.model.compile(optimizer='sgd', loss='binary_crossentropy')
+        self.train_losses = None
+        self.valid_losses = None
 
 class DecisionTree(Model):
 
